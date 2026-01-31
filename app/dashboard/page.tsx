@@ -1,30 +1,56 @@
+'use client'
+
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
-import { createClient } from '@/lib/supabase-server'
+import { createClient } from '@/lib/supabase'
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function DashboardPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (!user) {
-    redirect('/login')
+  useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+
+      setEmail(user.email ?? null)
+      setLoading(false)
+    }
+
+    fetchUser()
+  }, [router])
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
   }
 
-  const logout = async () => {
-    'use server'
-    const client = await createClient()
-    await client.auth.signOut()
-    redirect('/')
+  if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-6 bg-sky-50">
+        <p className="text-sky-700">Chargement...</p>
+      </main>
+    )
   }
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-6 p-6 bg-sky-50">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-sky-800">Tableau de bord</h1>
-        <p className="mt-2 text-sky-700">Connecté : {user.email}</p>
+        <p className="mt-2 text-sky-700">
+          Connecté{email ? ` : ${email}` : ''}
+        </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
@@ -33,14 +59,13 @@ export default async function DashboardPage() {
           >
             Retour à l’accueil
           </Link>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-2xl bg-sky-500 text-white font-medium hover:bg-sky-600"
-            >
-              Se déconnecter
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="px-4 py-2 rounded-2xl bg-sky-500 text-white font-medium hover:bg-sky-600"
+          >
+            Se déconnecter
+          </button>
         </div>
       </div>
     </main>
