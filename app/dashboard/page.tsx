@@ -87,6 +87,7 @@ export default async function DashboardPage() {
     }
 
     const clientName = String(formData.get('clientName') || '').trim()
+    const clientPhone = String(formData.get('clientPhone') || '').trim()
 
     if (!clientName) {
       return { ok: false, error: 'Merci de saisir le nom du client.' }
@@ -97,6 +98,7 @@ export default async function DashboardPage() {
       .insert({
         artisan_id: currentUser.id,
         client_name: clientName,
+        client_phone: clientPhone || null,
         status: 'sent',
       })
       .select('token')
