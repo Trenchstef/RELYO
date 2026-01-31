@@ -119,10 +119,10 @@ export default async function DashboardPage() {
           <Link className="rounded-2xl bg-slate-100 px-3 py-2 text-slate-900" href="/dashboard">
             Tableau de bord
           </Link>
-          <Link className="rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-100" href="#">
+          <Link className="rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-100" href="/clients">
             Mes clients
           </Link>
-          <Link className="rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-100" href="#">
+          <Link className="rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-100" href="/settings">
             Paramètres
           </Link>
         </nav>
