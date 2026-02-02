@@ -18,6 +18,12 @@ export default function SettingsPage() {
             <p className="mt-1 text-sm text-slate-600">
               Email : <span className="font-medium">artisan@relyo.app</span>
             </p>
+            <Link
+              href="/dashboard/settings/profile"
+              className="mt-4 inline-flex rounded-2xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Modifier le profil entreprise
+            </Link>
           </div>
 
           <div className="rounded-2xl border border-slate-200 p-4">
