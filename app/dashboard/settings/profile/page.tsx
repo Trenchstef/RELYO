@@ -1,4 +1,4 @@
-\'use client\'
+'use client'
 
 import Script from 'next/script'
 import { useEffect, useRef, useState } from 'react'
