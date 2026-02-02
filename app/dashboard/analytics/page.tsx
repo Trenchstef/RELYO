@@ -3,11 +3,7 @@ import { redirect } from 'next/navigation'
 
 import AnalyticsClient from './AnalyticsClient'
 import { createClient } from '@/lib/supabase-server'
-
-type ReviewRow = {
-  created_at: string
-  comment: string | null
-}
+import type { Review } from '@/lib/types/reviews'
 
 const STOP_WORDS = new Set([
   'avec',
@@ -53,7 +49,7 @@ const STOP_WORDS = new Set([
   'cette',
 ])
 
-function buildChartData(reviews: ReviewRow[]) {
+function buildChartData(reviews: Review[]) {
   const now = new Date()
   const counts = new Map<string, number>()
 
@@ -77,7 +73,7 @@ function buildChartData(reviews: ReviewRow[]) {
   return points
 }
 
-function buildKeywords(reviews: ReviewRow[]) {
+function buildKeywords(reviews: Review[]) {
   const counts = new Map<string, number>()
 
   reviews.forEach((review) => {
@@ -110,13 +106,17 @@ export default async function AnalyticsPage() {
     redirect('/login')
   }
 
-  const { data: reviews } = await supabase
+  const { data: reviews, error } = await supabase
     .from('reviews')
     .select('created_at, comment')
     .eq('artisan_id', user.id)
     .order('created_at', { ascending: true })
 
-  const reviewRows = (reviews ?? []) as ReviewRow[]
+  if (error) {
+    throw new Error("Impossible de charger les avis pour l'analytics.")
+  }
+
+  const reviewRows = (reviews ?? []) as Review[]
   const chartData = buildChartData(reviewRows)
   const keywords = buildKeywords(reviewRows)
 

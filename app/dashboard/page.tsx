@@ -13,17 +13,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { createClient } from '@/lib/supabase-server'
+import type { Review } from '@/lib/types/reviews'
+import { getStatusLabel } from '@/lib/types/reviews'
 
+import { createRequestAction } from './actions'
 import NewRequestDialog from './NewRequestDialog'
-
-type ReviewRow = {
-  id: string
-  created_at: string
-  client_name: string | null
-  status: string | null
-  rating: number | null
-  token: string | null
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -35,14 +29,18 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  const { data: reviews } = await supabase
+  const { data: reviews, error } = await supabase
     .from('reviews')
     .select('id, created_at, client_name, status, rating, token')
     .eq('artisan_id', user.id)
     .order('created_at', { ascending: false })
     .limit(8)
 
-  const reviewRows = (reviews ?? []) as ReviewRow[]
+  if (error) {
+    throw new Error("Impossible de charger les demandes.")
+  }
+
+  const reviewRows = (reviews ?? []) as Review[]
   const totalReviews = reviewRows.length
   const ratings = reviewRows.map((review) => review.rating).filter(Boolean) as number[]
   const averageRating =
@@ -55,61 +53,12 @@ export default async function DashboardPage() {
   ).length
   const conversionRate = totalReviews > 0 ? Math.round((publishedCount / totalReviews) * 100) : 0
 
-  const statusLabel = (review: ReviewRow) => {
-    if (review.status === 'published' || review.rating !== null) {
-      return { label: 'Publié', variant: 'success' as const }
-    }
-    if (review.status === 'pending') {
-      return { label: 'Rédigé', variant: 'warning' as const }
-    }
-    return { label: 'Envoyé', variant: 'neutral' as const }
-  }
-
   const displayName =
     user.user_metadata?.full_name || user.email?.split('@')[0] || 'artisan'
 
   const appUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-
-  const createRequestAction = async (
-    state: { ok: boolean; token?: string | null; error?: string | null },
-    formData: FormData
-  ) => {
-    'use server'
-    const supabaseClient = await createClient()
-    const {
-      data: { user: currentUser },
-    } = await supabaseClient.auth.getUser()
-
-    if (!currentUser) {
-      return { ok: false, error: 'Session expirée. Merci de te reconnecter.' }
-    }
-
-    const clientName = String(formData.get('clientName') || '').trim()
-    const clientPhone = String(formData.get('clientPhone') || '').trim()
-
-    if (!clientName) {
-      return { ok: false, error: 'Merci de saisir le nom du client.' }
-    }
-
-    const { data, error } = await supabaseClient
-      .from('reviews')
-      .insert({
-        artisan_id: currentUser.id,
-        client_name: clientName,
-        client_phone: clientPhone || null,
-        status: 'sent',
-      })
-      .select('token')
-      .single()
-
-    if (error) {
-      return { ok: false, error: error.message }
-    }
-
-    return { ok: true, token: data?.token ?? null }
-  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -207,7 +156,10 @@ export default async function DashboardPage() {
                   </TableHead>
                   <TableBody>
                     {reviewRows.map((review) => {
-                      const status = statusLabel(review)
+                      const status = getStatusLabel(
+                        review.status as 'pending' | 'sent' | 'published' | null,
+                        review.rating
+                      )
                       const dateLabel = new Date(review.created_at).toLocaleDateString('fr-FR')
                       const magicLink = review.token
                         ? `${appUrl}/avis/${review.token}`

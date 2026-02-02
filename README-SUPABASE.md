@@ -46,6 +46,15 @@ const supabase = await createClient()
 const { data } = await supabase.from('ma_table').select()
 ```
 
+## 5. Générer les types Supabase
+
+1. Crée un token d’accès Supabase : https://app.supabase.com/account/tokens
+2. Exécute :
+   ```bash
+   SUPABASE_ACCESS_TOKEN=xxx npm run supabase:types
+   ```
+   Cela met à jour `lib/database.types.ts`.
+
 ## 4. Fichiers créés
 
 - `lib/supabase.ts` — client navigateur (cookies gérés par le navigateur)
