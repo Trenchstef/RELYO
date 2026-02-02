@@ -27,6 +27,19 @@ export default function SettingsPage() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 p-4">
+            <h2 className="text-sm font-semibold text-slate-900">Facturation</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Consulte ton plan actuel et gère ton abonnement.
+            </p>
+            <Link
+              href="/dashboard/settings/billing"
+              className="mt-4 inline-flex rounded-2xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Gérer la facturation
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 p-4">
             <h2 className="text-sm font-semibold text-slate-900">Notifications</h2>
             <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
               <span>Relances automatiques</span>
