@@ -3,6 +3,32 @@ export type Json = string | number | boolean | null | { [key: string]: Json } | 
 export type Database = {
   public: {
     Tables: {
+      artisan_profiles: {
+        Row: {
+          id: string
+          company_name: string | null
+          logo_url: string | null
+          google_place_id: string | null
+          google_place_label: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          company_name?: string | null
+          logo_url?: string | null
+          google_place_id?: string | null
+          google_place_label?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_name?: string | null
+          logo_url?: string | null
+          google_place_id?: string | null
+          google_place_label?: string | null
+          updated_at?: string | null
+        }
+      }
       reviews: {
         Row: {
           id: string
