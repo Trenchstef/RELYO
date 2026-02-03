@@ -3,6 +3,7 @@
 import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase-server'
+import type { ReviewUpdate } from '@/lib/types/reviews'
 
 export type ReviewFormState = {
   ok: boolean
@@ -32,13 +33,15 @@ export async function submitReviewAction(
     return { ok: false, error: 'Merci de remplir tous les champs.' }
   }
 
+  const updatePayload: ReviewUpdate = {
+    rating: validation.data.rating,
+    comment: validation.data.comment,
+    status: 'published',
+  }
+
   const { error } = await supabase
     .from('reviews')
-    .update({
-      rating: validation.data.rating,
-      comment: validation.data.comment,
-      status: 'published',
-    })
+    .update(updatePayload)
     .eq('token', validation.data.token)
     .is('rating', null)
     .select('id')
