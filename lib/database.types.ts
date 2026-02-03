@@ -28,6 +28,7 @@ export type Database = {
           google_place_label?: string | null
           updated_at?: string | null
         }
+        Relationships: []
       }
       reviews: {
         Row: {
@@ -63,6 +64,7 @@ export type Database = {
           comment?: string | null
           status?: string | null
         }
+        Relationships: []
       }
     }
     Views: {}
