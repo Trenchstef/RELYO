@@ -1,205 +1,259 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
+'use client'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-} from '@/components/ui/table'
-import { createClient } from '@/lib/supabase-server'
+import { useEffect, useMemo, useState } from 'react'
+
+import { createClient } from '@/lib/supabase'
 import type { Review } from '@/lib/types/reviews'
-import { getStatusLabel } from '@/lib/types/reviews'
 
-import { createRequestAction } from './actions'
-import NewRequestDialog from './NewRequestDialog'
+type RequestRow = Pick<Review, 'id' | 'created_at' | 'client_name' | 'token'>
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function DashboardPage() {
+  const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [requests, setRequests] = useState<RequestRow[]>([])
+  const [modalOpen, setModalOpen] = useState(false)
+  const [clientName, setClientName] = useState('')
+  const [clientPhone, setClientPhone] = useState('')
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  if (!user) {
-    redirect('/login')
+  useEffect(() => {
+    const fetchData = async () => {
+      const supabase = createClient()
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.log('Dashboard: utilisateur non connecté')
+        setLoading(false)
+        return
+      }
+
+      setUserId(user.id)
+
+      const { data } = await supabase
+        .from('reviews')
+        .select('id, created_at, client_name, token')
+        .eq('artisan_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      setRequests((data ?? []) as RequestRow[])
+      setLoading(false)
+    }
+
+    fetchData()
+  }, [])
+
+  const magicLink = useMemo(() => {
+    if (!generatedToken || typeof window === 'undefined') {
+      return null
+    }
+    return `${window.location.origin}/avis/${generatedToken}`
+  }, [generatedToken])
+
+  const handleOpenModal = () => {
+    console.log('1. Bouton Nouvelle demande cliqué')
+    setModalOpen(true)
+    setGeneratedToken(null)
+    setError(null)
   }
 
-  const { data: reviews, error } = await supabase
-    .from('reviews')
-    .select('id, created_at, client_name, status, rating, token')
-    .eq('artisan_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(8)
+  const handleGenerate = async () => {
+    console.log('2. Validation formulaire')
+    setError(null)
 
-  if (error) {
-    throw new Error("Impossible de charger les demandes.")
+    if (!userId) {
+      setError('Session expirée. Merci de te reconnecter.')
+      return
+    }
+
+    if (!clientName.trim()) {
+      setError('Merci de saisir le nom du client.')
+      return
+    }
+
+    setSaving(true)
+    const supabase = createClient()
+
+    console.log('3. Insertion dans Supabase')
+    const { data, error: insertError } = await supabase
+      .from('reviews')
+      .insert({
+        artisan_id: userId,
+        client_name: clientName.trim(),
+        client_phone: clientPhone.trim() || null,
+        status: 'sent',
+      })
+      .select('token')
+      .single()
+
+    if (insertError) {
+      console.log('4. Erreur Supabase', insertError.message)
+      setSaving(false)
+      setError("Impossible d'enregistrer la demande.")
+      return
+    }
+
+    console.log('4. Token généré', data?.token)
+    setGeneratedToken(data?.token ?? null)
+    setSaving(false)
   }
 
-  const reviewRows = (reviews ?? []) as Review[]
-  const totalReviews = reviewRows.length
-  const ratings = reviewRows.map((review) => review.rating).filter(Boolean) as number[]
-  const averageRating =
-    ratings.length > 0
-      ? Math.round((ratings.reduce((sum, value) => sum + value, 0) / ratings.length) * 10) /
-        10
-      : 0
-  const publishedCount = reviewRows.filter(
-    (review) => review.status === 'published' || review.rating !== null
-  ).length
-  const conversionRate = totalReviews > 0 ? Math.round((publishedCount / totalReviews) * 100) : 0
+  const handleCopy = async () => {
+    if (!magicLink) return
+    console.log('5. Copie du lien')
+    await navigator.clipboard.writeText(magicLink)
+  }
 
-  const displayName =
-    user.user_metadata?.full_name || user.email?.split('@')[0] || 'artisan'
-
-  const appUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  const handleShareWhatsApp = () => {
+    if (!magicLink) return
+    console.log('6. Redirection WhatsApp')
+    const url = `https://wa.me/?text=${encodeURIComponent(
+      `Bonjour, voici votre lien pour laisser un avis : ${magicLink}`
+    )}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <aside className="fixed left-0 top-0 flex h-full w-64 flex-col border-r border-slate-200 bg-white p-6">
-        <div className="text-xl font-bold text-slate-900">RELYO</div>
-        <nav className="mt-10 flex flex-col gap-2 text-sm">
-          <Link className="rounded-2xl bg-slate-100 px-3 py-2 text-slate-900" href="/dashboard">
-            Tableau de bord
-          </Link>
-          <Link className="rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-100" href="/dashboard/analytics">
-            Analytics
-          </Link>
-          <Link className="rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-100" href="/dashboard/customers">
-            Mes clients
-          </Link>
-          <Link className="rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-100" href="/dashboard/settings">
-            Paramètres
-          </Link>
-        </nav>
-
-        <div className="mt-auto flex items-center gap-3 rounded-2xl border border-slate-200 px-3 py-3 text-sm text-slate-700">
-          <div className="h-9 w-9 rounded-full bg-slate-200" />
+    <main className="min-h-screen bg-slate-50 p-8">
+      <div className="mx-auto w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium text-slate-900">{displayName}</p>
-            <p className="text-xs text-slate-500">{user.email}</p>
+            <h1 className="text-2xl font-semibold text-slate-900">Tableau de bord</h1>
+            <p className="text-sm text-slate-600">
+              {loading ? 'Chargement...' : 'Gère tes demandes et tes clients.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenModal}
+            disabled={loading}
+            className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-60"
+          >
+            Nouvelle demande +
+          </button>
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-slate-200">
+          <div className="grid grid-cols-3 gap-4 border-b border-slate-200 px-4 py-3 text-xs font-medium text-slate-500">
+            <span>Client</span>
+            <span>Date</span>
+            <span>Lien</span>
+          </div>
+          {requests.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-slate-500">Aucune demande pour le moment.</div>
+          ) : (
+            requests.map((request) => {
+              const date = request.created_at
+                ? new Date(request.created_at).toLocaleDateString('fr-FR')
+                : '-'
+              return (
+                <div
+                  key={request.id}
+                  className="grid grid-cols-3 gap-4 border-t border-slate-100 px-4 py-3 text-sm text-slate-700"
+                >
+                  <span>{request.client_name || 'Client'}</span>
+                  <span>{date}</span>
+                  <span className="text-slate-500">
+                    {request.token ? 'Lien généré' : '—'}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      {modalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setModalOpen(false)}
+            aria-label="Fermer"
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Nouvelle demande</h2>
+                <p className="text-sm text-slate-500">
+                  Saisis les infos du client pour générer le lien.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="rounded-2xl border border-slate-200 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
+              >
+                Fermer
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Nom du client</label>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm"
+                  value={clientName}
+                  onChange={(event) => setClientName(event.target.value)}
+                  placeholder="Ex: Marie Dupont"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Mobile</label>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm"
+                  value={clientPhone}
+                  onChange={(event) => setClientPhone(event.target.value)}
+                  placeholder="+33 6 12 34 56 78"
+                />
+              </div>
+            </div>
+
+            {error ? (
+              <p className="mt-4 rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-700">
+                {error}
+              </p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={saving || !userId}
+              className="mt-5 w-full rounded-2xl bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-60"
+            >
+              {saving ? 'Génération...' : 'Générer le lien magique'}
+            </button>
+
+            {magicLink ? (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">Lien magique</p>
+                <p className="mt-1 break-all text-sm text-slate-900">{magicLink}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="rounded-2xl border border-slate-200 px-4 py-2 text-xs text-slate-700 hover:bg-slate-100"
+                  >
+                    Copier le lien
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareWhatsApp}
+                    className="rounded-2xl bg-sky-500 px-4 py-2 text-xs text-white hover:bg-sky-600"
+                  >
+                    Partager sur WhatsApp
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
-      </aside>
-
-      <main className="ml-64 min-h-screen px-10 pb-12 pt-8">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-slate-500">Tableau de bord</p>
-            <h1 className="text-2xl font-semibold text-slate-900">
-              Bonjour, {displayName}
-            </h1>
-          </div>
-          <NewRequestDialog action={createRequestAction} />
-        </header>
-
-        <section className="mt-8 grid gap-6 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Avis reçus</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold text-slate-900">{totalReviews}</p>
-              <p className="text-xs text-slate-500">Total</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Note moyenne</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end gap-2">
-                <p className="text-3xl font-semibold text-slate-900">
-                  {averageRating.toFixed(1)}
-                </p>
-                <span className="text-sm text-slate-500">/ 5</span>
-              </div>
-              <p className="text-xs text-slate-500">Basé sur {ratings.length} avis notés</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Taux de conversion</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold text-slate-900">{conversionRate}%</p>
-              <p className="text-xs text-slate-500">Demandes transformées en avis</p>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Demandes récentes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {reviewRows.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
-                  Aucune demande pour le moment. Lance ta première demande !
-                </div>
-              ) : (
-                <Table>
-                  <TableHead>
-                    <tr>
-                      <TableHeaderCell>Client</TableHeaderCell>
-                      <TableHeaderCell>Date</TableHeaderCell>
-                      <TableHeaderCell>Status</TableHeaderCell>
-                      <TableHeaderCell className="text-right">Action</TableHeaderCell>
-                    </tr>
-                  </TableHead>
-                  <TableBody>
-                    {reviewRows.map((review) => {
-                      const status = getStatusLabel(
-                        review.status as 'pending' | 'sent' | 'published' | null,
-                        review.rating
-                      )
-                      const dateLabel = new Date(review.created_at).toLocaleDateString('fr-FR')
-                      const magicLink = review.token
-                        ? `${appUrl}/avis/${review.token}`
-                        : null
-                      const whatsappLink = magicLink
-                        ? `https://wa.me/?text=${encodeURIComponent(
-                            `Bonjour, voici votre lien pour laisser un avis : ${magicLink}`
-                          )}`
-                        : '#'
-
-                      return (
-                        <TableRow key={review.id}>
-                          <TableCell className="font-medium text-slate-900">
-                            {review.client_name || 'Client'}
-                          </TableCell>
-                          <TableCell className="text-slate-500">{dateLabel}</TableCell>
-                          <TableCell>
-                            <Badge variant={status.variant}>{status.label}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {magicLink ? (
-                              <a href={whatsappLink} target="_blank" rel="noreferrer">
-                                <Button variant="secondary">Relancer</Button>
-                              </a>
-                            ) : (
-                              <Button variant="secondary" disabled>
-                                Relancer
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-      </main>
-    </div>
+      ) : null}
+    </main>
   )
 }
