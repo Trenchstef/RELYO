@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from '@/lib/database.types'
 
@@ -6,7 +7,7 @@ import type { Database } from '@/lib/database.types'
  * Client Supabase pour le navigateur (composants client, formulaires, etc.)
  * Utilise les cookies pour la session.
  */
-export function createClient() {
+export function createClient(): SupabaseClient<Database> {
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
