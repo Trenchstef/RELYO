@@ -8,7 +8,7 @@ import type { Database } from '@/lib/database.types'
  * Client Supabase pour le serveur (Server Components, Route Handlers, Middleware).
  * Lit/écrit les cookies de session.
  */
-export async function createClient(): Promise<SupabaseClient<Database>> {
+export async function createClient(): Promise<SupabaseClient<Database, 'public'>> {
   const cookieStore = await cookies()
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -18,7 +18,7 @@ export async function createClient(): Promise<SupabaseClient<Database>> {
     throw new Error('Missing Supabase environment variables')
   }
 
-  return createServerClient<Database>(
+  return createServerClient<Database, 'public'>(
     supabaseUrl,
     supabaseAnonKey,
     {
